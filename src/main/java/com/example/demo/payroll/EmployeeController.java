@@ -2,6 +2,8 @@ package com.example.demo.payroll;
 
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.IanaLinkRelations;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,9 +32,11 @@ public class EmployeeController {
     }
 
     @PostMapping("/employees")
-    public EntityModel<Employee> newEmployee(@RequestBody Employee newEmployee){
-        Employee savedEmployee = repository.save(newEmployee);
-        return assembler.toModel(savedEmployee);
+    ResponseEntity<?> newEmployee(@RequestBody Employee newEmployee) {
+        EntityModel<Employee> entityModel = assembler.toModel(repository.save(newEmployee));
+        return ResponseEntity
+                .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri())
+                .body(entityModel);
     }
 
     @GetMapping("/employees/{id}")
@@ -44,19 +48,24 @@ public class EmployeeController {
     }
 
     @PutMapping("/employees/{id}")
-    public EntityModel<Employee> replaceEmployee(@RequestBody Employee newEmployee, @PathVariable Long id){
+    public ResponseEntity<?> replaceEmployee(@RequestBody Employee newEmployeeData, @PathVariable Long id){
         Employee updatedEmployee = repository.findById(id).map(employee -> {
-                    employee.setName(newEmployee.getName());
-                    employee.setRole(newEmployee.getRole());
+                    employee.setName(newEmployeeData.getName());
+                    employee.setRole(newEmployeeData.getRole());
                     return repository.save(employee);
                 })
-                .orElseGet(() -> repository.save(newEmployee));
+                .orElseGet(() -> repository.save(newEmployeeData));
 
-        return assembler.toModel(updatedEmployee);
+        EntityModel<Employee> updatedModel = assembler.toModel(updatedEmployee);
+
+        return ResponseEntity
+                .created(updatedModel.getRequiredLink(IanaLinkRelations.SELF).toUri())
+                .body(updatedModel);
     }
 
     @DeleteMapping("/employees/{id}")
-    public void deleteEmployee(@PathVariable Long id){
+    public ResponseEntity<?> deleteEmployee(@PathVariable Long id){
         repository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
